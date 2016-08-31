@@ -155,10 +155,10 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             let token = token.unwrap();
             {
                 let cached_entry = &mut self.slab[token];
+                cached_entry.is_history = false;
                 cached_entry.is_reference = false;
                 cached_entry.is_longterm = true;
                 self.longterm_count += 1;
-                cached_entry.is_history = false;
             }
             self.b1.remove(&mut self.slab, token);
             self.t1.push_back(token);
@@ -168,8 +168,8 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             let token = token.unwrap();
             {
                 let cached_entry = &mut self.slab[token];
-                cached_entry.is_reference = false;
                 cached_entry.is_history = false;
+                cached_entry.is_reference = false;
                 assert!(cached_entry.is_longterm == true);
                 self.longterm_count += 1;
             }
