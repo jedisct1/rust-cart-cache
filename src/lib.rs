@@ -147,21 +147,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         }
     }
 
-    pub fn insert(&mut self, key: K, value: V) -> bool
-        where K: Hash + Eq + Clone
-    {
-        let (token, is_history, is_longterm) = match self.map.get_mut(&key) {
-            Some(&mut token) => {
-                let cached_entry = &mut self.slab[token];
-                if cached_entry.is_history == false {
-                    cached_entry.is_reference = true;
-                    cached_entry.value = value;
-                    return true;
-                }
-                (Some(token), cached_entry.is_history, cached_entry.is_longterm)
-            }
-            None => (None, false, false),
-        };
+    fn evict_if_full(&mut self, is_history: bool) {
         if self.t1.len() + self.t2.len() >= self.c {
             self.replace();
             if is_history == false && self.b1.len() + self.b2.len() >= self.c + 1 {
@@ -177,55 +163,85 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             }
             self.evicted += 1;
         }
+    }
+
+    fn insert_new_entry(&mut self, key: K, value: V)
+        where K: Hash + Eq + Clone
+    {
+        let entry = Entry {
+            key: key.clone(),
+            value: value,
+            prev: None,
+            next: None,
+            is_history: false,
+            is_reference: false,
+            is_longterm: false,
+        };
+        let token = self.slab.insert(entry).ok().expect("Slab full");
+        self.t1.push_back(token);
+        self.shortterm_count += 1;
+        self.map.insert(key, token);
+        self.inserted += 1;
+    }
+
+    fn promote_from_b1(&mut self, token: Token) {
+        self.p = min(self.p + max(1, self.shortterm_count / self.b1.len()),
+                     self.c);
+        {
+            let cached_entry = &mut self.slab[token];
+            cached_entry.is_history = false;
+            cached_entry.is_reference = false;
+            cached_entry.is_longterm = true;
+            self.longterm_count += 1;
+        }
+        self.b1.remove(&mut self.slab, token);
+        self.t1.push_back(token);
+    }
+
+    fn promote_from_b2(&mut self, token: Token) {
+        let t = max(1, self.longterm_count / self.b2.len());
+        self.p = if self.p > t { self.p - t } else { 0 };
+        {
+            let cached_entry = &mut self.slab[token];
+            cached_entry.is_history = false;
+            cached_entry.is_reference = false;
+            assert!(cached_entry.is_longterm == true);
+            self.longterm_count += 1;
+        }
+        self.b2.remove(&mut self.slab, token);
+        self.t1.push_back(token);
+        if self.t2.len() + self.b2.len() + self.t1.len() - self.shortterm_count >= self.c {
+            self.q = min(self.q + 1, self.capacity - self.t1.len());
+        }
+    }
+
+    pub fn insert(&mut self, key: K, value: V) -> bool
+        where K: Hash + Eq + Clone
+    {
+        let (token, is_history, is_longterm) = match self.map.get_mut(&key) {
+            Some(&mut token) => {
+                let cached_entry = &mut self.slab[token];
+                if cached_entry.is_history == false {
+                    cached_entry.is_reference = true;
+                    cached_entry.value = value;
+                    return true;
+                }
+                (Some(token), cached_entry.is_history, cached_entry.is_longterm)
+            }
+            None => (None, false, false),
+        };
+        self.evict_if_full(is_history);
         if is_history == false {
-            let entry = Entry {
-                key: key.clone(),
-                value: value,
-                prev: None,
-                next: None,
-                is_history: false,
-                is_reference: false,
-                is_longterm: false,
-            };
-            let token = self.slab.insert(entry).ok().expect("Slab full");
-            self.t1.push_back(token);
-            self.shortterm_count += 1;
-            self.map.insert(key, token);
-            self.inserted += 1;
+            self.insert_new_entry(key, value);
         } else if is_longterm == false {
-            self.p = min(self.p + max(1, self.shortterm_count / self.b1.len()),
-                         self.c);
-            let token = token.unwrap();
-            {
-                let cached_entry = &mut self.slab[token];
-                cached_entry.is_history = false;
-                cached_entry.is_reference = false;
-                cached_entry.is_longterm = true;
-                self.longterm_count += 1;
-            }
-            self.b1.remove(&mut self.slab, token);
-            self.t1.push_back(token);
+            self.promote_from_b1(token.unwrap());
         } else {
-            let t = max(1, self.longterm_count / self.b2.len());
-            self.p = if self.p > t { self.p - t } else { 0 };
-            let token = token.unwrap();
-            {
-                let cached_entry = &mut self.slab[token];
-                cached_entry.is_history = false;
-                cached_entry.is_reference = false;
-                assert!(cached_entry.is_longterm == true);
-                self.longterm_count += 1;
-            }
-            self.b2.remove(&mut self.slab, token);
-            self.t1.push_back(token);
-            if self.t2.len() + self.b2.len() + self.t1.len() - self.shortterm_count >= self.c {
-                self.q = min(self.q + 1, self.capacity - self.t1.len());
-            }
+            self.promote_from_b2(token.unwrap());
         }
         false
     }
 
-    fn replace(&mut self) {
+    fn replace_t2(&mut self) {
         loop {
             match self.t2.front() {
                 None => break,
@@ -243,6 +259,9 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
                 self.q = min(self.q + 1, self.capacity - self.t1.len())
             }
         }
+    }
+
+    fn replace_t1(&mut self) {
         loop {
             match self.t1.front() {
                 None => break,
@@ -273,7 +292,9 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
                 }
             }
         }
+    }
 
+    fn demote(&mut self) {
         if self.t1.len() >= max(1, self.p) {
             if let Some(token) = self.t1.pop_front() {
                 {
@@ -297,6 +318,12 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
                 self.b2.push_back(&mut self.slab, token);
             }
         }
+    }
+
+    fn replace(&mut self) {
+        self.replace_t2();
+        self.replace_t1();
+        self.demote();
     }
 }
 
