@@ -91,6 +91,13 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         self.longterm_count = 0;
     }
 
+    pub fn contains_key<Q: ?Sized>(&self, key: &Q) -> bool
+        where Q: Hash + Eq,
+              Rc<K>: Borrow<Q>
+    {
+        self.map.contains_key(key)
+    }
+
     pub fn get<Q: ?Sized>(&mut self, key: &Q) -> Option<&V>
         where Q: Hash + Eq,
               Rc<K>: Borrow<Q>
@@ -100,6 +107,20 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
                 let cached_entry = &mut self.slab[token];
                 cached_entry.is_reference = true;
                 Some(&cached_entry.value)
+            }
+            None => None,
+        }
+    }
+
+    pub fn get_mut<Q: ?Sized>(&mut self, key: &Q) -> Option<&mut V>
+        where Q: Hash + Eq,
+              Rc<K>: Borrow<Q>
+    {
+        match self.map.get(key) {
+            Some(&token) => {
+                let cached_entry = &mut self.slab[token];
+                cached_entry.is_reference = true;
+                Some(&mut cached_entry.value)
             }
             None => None,
         }
