@@ -7,12 +7,11 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::hash::Hash;
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 struct Entry<K, V>
     where K: Eq + Hash
 {
-    key: Rc<K>,
+    key: K,
     value: V,
     prev: Option<Token>,
     next: Option<Token>,
@@ -27,7 +26,7 @@ pub struct CartCache<K, V>
     where K: Eq + Hash
 {
     slab: Slab<Entry<K, V>, Token>,
-    map: HashMap<Rc<K>, Token>,
+    map: HashMap<K, Token>,
     t1: VecDeque<Token>,
     t2: VecDeque<Token>,
     b1: XLinkedList<K, V>,
@@ -93,14 +92,14 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
 
     pub fn contains_key<Q: ?Sized>(&self, key: &Q) -> bool
         where Q: Hash + Eq,
-              Rc<K>: Borrow<Q>
+              K: Borrow<Q>
     {
         self.map.contains_key(key)
     }
 
     pub fn get<Q: ?Sized>(&mut self, key: &Q) -> Option<&V>
         where Q: Hash + Eq,
-              Rc<K>: Borrow<Q>
+              K: Borrow<Q>
     {
         match self.map.get(key) {
             Some(&token) => {
@@ -114,7 +113,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
 
     pub fn get_mut<Q: ?Sized>(&mut self, key: &Q) -> Option<&mut V>
         where Q: Hash + Eq,
-              Rc<K>: Borrow<Q>
+              K: Borrow<Q>
     {
         match self.map.get(key) {
             Some(&token) => {
@@ -127,7 +126,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     }
 
     pub fn insert(&mut self, key: K, value: V) -> bool
-        where K: Hash + Eq
+        where K: Hash + Eq + Clone
     {
         let (token, is_history, is_longterm) = match self.map.get_mut(&key) {
             Some(&mut token) => {
@@ -146,17 +145,16 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             if is_history == false && self.b1.len() + self.b2.len() >= self.c + 1 {
                 if self.b1.len() > max(0, self.q) || self.b2.is_empty() {
                     let token = self.b1.pop_front(&mut self.slab).expect("Front element vanished");
-                    self.map.remove(&*self.slab[token].key);
+                    self.map.remove(&self.slab[token].key);
                     self.slab.remove(token);
                 } else if !self.b2.is_empty() {
                     let token = self.b2.pop_front(&mut self.slab).expect("Front element vanished");
-                    self.map.remove(&*self.slab[token].key);
+                    self.map.remove(&self.slab[token].key);
                     self.slab.remove(token);
                 }
             }
         }
         if is_history == false {
-            let key = Rc::new(key);
             let entry = Entry {
                 key: key.clone(),
                 value: value,
