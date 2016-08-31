@@ -37,6 +37,8 @@ pub struct CartCache<K, V>
     q: usize,
     shortterm_count: usize,
     longterm_count: usize,
+    inserted: u64,
+    evicted: u64,
 }
 
 impl<K: Eq + Hash, V> CartCache<K, V> {
@@ -65,6 +67,8 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             q: 0,
             shortterm_count: 0,
             longterm_count: 0,
+            inserted: 0,
+            evicted: 0,
         };
         Ok(cache)
     }
@@ -75,6 +79,22 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
 
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+
+    pub fn frequent_len(&self) -> usize {
+        self.longterm_count
+    }
+
+    pub fn recent_len(&self) -> usize {
+        self.shortterm_count
+    }
+
+    pub fn inserted(&self) -> u64 {
+        self.inserted
+    }
+
+    pub fn evicted(&self) -> u64 {
+        self.evicted
     }
 
     pub fn clear(&mut self) {
@@ -88,6 +108,8 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         self.q = 0;
         self.shortterm_count = 0;
         self.longterm_count = 0;
+        self.inserted = 0;
+        self.evicted = 0;
     }
 
     pub fn contains_key<Q: ?Sized>(&self, key: &Q) -> bool
@@ -153,6 +175,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
                     self.slab.remove(token);
                 }
             }
+            self.evicted += 1;
         }
         if is_history == false {
             let entry = Entry {
@@ -168,6 +191,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             self.t1.push_back(token);
             self.shortterm_count += 1;
             self.map.insert(key, token);
+            self.inserted += 1;
         } else if is_longterm == false {
             self.p = min(self.p + max(1, self.shortterm_count / self.b1.len()),
                          self.c);
@@ -340,6 +364,7 @@ impl<K, V> XLinkedList<K, V>
         self.len == 0
     }
 
+    #[inline]
     fn clear(&mut self) {
         self.len = 0;
         self.head = None;
