@@ -128,9 +128,10 @@ impl<K, V> CartCache<K, V>
         where Q: Hash + Eq,
               K: Borrow<Q>
     {
-        self.cms.increment(key);
         match self.map.get(key) {
             Some(&token) => {
+                self.cms.increment(key);
+                self.cms.reset_next();
                 let cached_entry = &mut self.slab[token];
                 cached_entry.is_reference = true;
                 Some(&cached_entry.value)
@@ -145,6 +146,8 @@ impl<K, V> CartCache<K, V>
     {
         match self.map.get(key) {
             Some(&token) => {
+                self.cms.increment(key);
+                self.cms.reset_next();
                 let cached_entry = &mut self.slab[token];
                 cached_entry.is_reference = true;
                 Some(&mut cached_entry.value)
@@ -153,22 +156,41 @@ impl<K, V> CartCache<K, V>
         }
     }
 
-    fn evict_if_full(&mut self, is_history: bool) {
-        if self.t1.len() + self.t2.len() >= self.c {
-            self.replace();
-            if is_history == false && self.b1.len() + self.b2.len() >= self.c + 1 {
-                if self.b1.len() > max(0, self.q) || self.b2.is_empty() {
-                    let token = self.b1.pop_front(&mut self.slab).expect("Front element vanished");
-                    self.map.remove(&self.slab[token].key);
-                    self.slab.remove(token);
-                } else if !self.b2.is_empty() {
-                    let token = self.b2.pop_front(&mut self.slab).expect("Front element vanished");
-                    self.map.remove(&self.slab[token].key);
+    fn evict_if_full(&mut self, key: &K, is_history: bool) -> bool {
+        if self.t1.len() + self.t2.len() < self.c {
+            return true;
+        }
+        let key_usage = self.cms.estimate(key);
+        self.replace();
+        if is_history == false && self.b1.len() + self.b2.len() >= self.c + 1 {
+            if self.b1.len() > self.q || self.b2.is_empty() {
+                if let Some(token) = self.b1.front() {
+                    {
+                        let victim_key = &self.slab[token].key;
+                        let victim_usage = self.cms.estimate(victim_key);
+                        if victim_usage > key_usage {
+                            return false;
+                        }
+                        self.map.remove(victim_key);
+                    }
+                    self.b1.pop_front(&mut self.slab);
                     self.slab.remove(token);
                 }
+            } else if let Some(token) = self.b2.front() {
+                {
+                    let victim_key = &self.slab[token].key;
+                    let victim_usage = self.cms.estimate(victim_key);
+                    if victim_usage > key_usage {
+                        return false;
+                    }
+                    self.map.remove(victim_key);
+                }
+                self.b2.pop_front(&mut self.slab);
+                self.slab.remove(token);
             }
-            self.evicted += 1;
         }
+        self.evicted += 1;
+        true
     }
 
     fn insert_new_entry(&mut self, key: K, value: V)
@@ -236,7 +258,9 @@ impl<K, V> CartCache<K, V>
             }
             None => (None, false, false),
         };
-        self.evict_if_full(is_history);
+        if !self.evict_if_full(&key, is_history) {
+            return false;
+        }
         if is_history == false {
             self.insert_new_entry(key, value);
         } else if is_longterm == false {
@@ -459,6 +483,11 @@ impl<K, V> XLinkedList<K, V>
             }
         }
         head_token
+    }
+
+    #[inline]
+    pub fn front(&self) -> Option<Token> {
+        self.head
     }
 }
 

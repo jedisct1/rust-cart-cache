@@ -9,7 +9,7 @@ authors = ["Frank Denis <github@pureftpd.org>"]
 
 [dependencies]
 slab = "~0.2.0"
-count-min-sketch = "~0.1.0"
+count-min-sketch = { "git" = "https://github.com/jedisct1/rust-count-min-sketch", "features" = ["nightly"] }
 
 [dev-dependencies]
 rand = "~0.3.14"
