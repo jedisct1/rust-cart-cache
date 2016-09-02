@@ -1,5 +1,7 @@
+extern crate count_min_sketch;
 extern crate slab;
 
+use count_min_sketch::CountMinSketch8;
 use slab::Slab;
 use std::borrow::Borrow;
 use std::cmp::{max, min};
@@ -8,9 +10,7 @@ use std::collections::VecDeque;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-struct Entry<K, V>
-    where K: Eq + Hash
-{
+struct Entry<K, V> {
     key: K,
     value: V,
     prev: Option<Token>,
@@ -31,6 +31,7 @@ pub struct CartCache<K, V>
     t2: VecDeque<Token>,
     b1: XLinkedList<K, V>,
     b2: XLinkedList<K, V>,
+    cms: CountMinSketch8<K>,
     c: usize,
     capacity: usize,
     p: usize,
@@ -41,7 +42,9 @@ pub struct CartCache<K, V>
     evicted: u64,
 }
 
-impl<K: Eq + Hash, V> CartCache<K, V> {
+impl<K, V> CartCache<K, V>
+    where K: Eq + Hash
+{
     pub fn new(capacity: usize) -> Result<CartCache<K, V>, &'static str> {
         if capacity <= 0 {
             return Err("Cache length cannot be zero");
@@ -53,6 +56,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         let t2 = VecDeque::with_capacity(c);
         let b1 = XLinkedList::new();
         let b2 = XLinkedList::new();
+        let cms = CountMinSketch8::new(100, 0.99, 2.0).unwrap();
 
         let cache = CartCache {
             slab: slab,
@@ -61,6 +65,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             t2: t2,
             b1: b1,
             b2: b2,
+            cms: cms,
             c: c,
             capacity: capacity,
             p: 0,
@@ -123,6 +128,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         where Q: Hash + Eq,
               K: Borrow<Q>
     {
+        self.cms.increment(key);
         match self.map.get(key) {
             Some(&token) => {
                 let cached_entry = &mut self.slab[token];

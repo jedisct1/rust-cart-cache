@@ -9,6 +9,7 @@ authors = ["Frank Denis <github@pureftpd.org>"]
 
 [dependencies]
 slab = "~0.2.0"
+count-min-sketch = "~0.1.0"
 
 [dev-dependencies]
 rand = "~0.3.14"
