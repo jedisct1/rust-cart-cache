@@ -161,32 +161,28 @@ impl<K, V> CartCache<K, V>
             return true;
         }
         let key_usage = self.cms.estimate(key);
+        let old_key_usage = if let Some(token) = self.b2.front() {
+            self.cms.estimate(&self.slab[token].key)
+        } else if let Some(token) = self.b1.front() {
+            self.cms.estimate(&self.slab[token].key)
+        } else {
+            0
+        };
+        if old_key_usage > key_usage {
+            return false;
+        }
         self.replace();
         if is_history == false && self.b1.len() + self.b2.len() >= self.c + 1 {
-            if self.b1.len() > self.q || self.b2.is_empty() {
-                if let Some(token) = self.b1.front() {
-                    {
-                        let victim_key = &self.slab[token].key;
-                        let victim_usage = self.cms.estimate(victim_key);
-                        if victim_usage > key_usage {
-                            return false;
-                        }
-                        self.map.remove(victim_key);
-                    }
-                    self.b1.pop_front(&mut self.slab);
-                    self.slab.remove(token);
-                }
-            } else if let Some(token) = self.b2.front() {
-                {
-                    let victim_key = &self.slab[token].key;
-                    let victim_usage = self.cms.estimate(victim_key);
-                    if victim_usage > key_usage {
-                        return false;
-                    }
-                    self.map.remove(victim_key);
-                }
-                self.b2.pop_front(&mut self.slab);
+            if self.b1.len() > max(0, self.q) || self.b2.is_empty() {
+                let token = self.b1.pop_front(&mut self.slab).expect("Front element vanished");
+                self.map.remove(&self.slab[token].key);
                 self.slab.remove(token);
+            } else if !self.b2.is_empty() {
+                let token = self.b2.pop_front(&mut self.slab).expect("Front element vanished");
+                self.map.remove(&self.slab[token].key);
+                self.slab.remove(token);
+            } else {
+                return false;
             }
         }
         self.evicted += 1;
