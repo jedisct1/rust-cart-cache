@@ -82,11 +82,11 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     }
 
     pub fn frequent_len(&self) -> usize {
-        self.longterm_count
+        self.longterm_count + self.b2.len()
     }
 
     pub fn recent_len(&self) -> usize {
-        self.shortterm_count
+        self.shortterm_count + self.b1.len()
     }
 
     pub fn inserted(&self) -> u64 {
