@@ -242,7 +242,7 @@ impl<K, V> CartCache<K, V>
     pub fn insert(&mut self, key: K, value: V) -> bool
         where K: Hash + Eq + Clone
     {
-        self.cms.increment(key);
+        self.cms.increment(&key);
         let (token, is_history, is_longterm) = match self.map.get_mut(&key) {
             Some(&mut token) => {
                 let cached_entry = &mut self.slab[token];
