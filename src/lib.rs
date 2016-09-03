@@ -56,7 +56,7 @@ impl<K, V> CartCache<K, V>
         let t2 = VecDeque::with_capacity(c);
         let b1 = XLinkedList::new();
         let b2 = XLinkedList::new();
-        let cms = CountMinSketch8::new(100, 0.99, 2.0).unwrap();
+        let cms = CountMinSketch8::new(capacity * 8, 0.95, 2.0).unwrap();
 
         let cache = CartCache {
             slab: slab,
