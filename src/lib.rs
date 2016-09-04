@@ -47,7 +47,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             return Err("Cache length cannot be zero");
         }
         let c = capacity / 2;
-        let slab = Slab::new(capacity);
+        let slab = Slab::with_capacity(capacity);
         let map = HashMap::with_capacity(c);
         let t1 = VecDeque::with_capacity(c);
         let t2 = VecDeque::with_capacity(c);
