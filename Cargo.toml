@@ -1,14 +1,19 @@
 [package]
 name = "cart-cache"
 description = "CART cache replacement policy"
-version = "0.1.1"
+version = "0.1.2"
 homepage = "https://github.com/jedisct1/rust-cart"
 keywords = ["cache"]
 license = "MIT"
 authors = ["Frank Denis <github@pureftpd.org>"]
+categories = ["algorithms", "caching"]
+
+[badges]
+travis-ci = { repository = "jedisct1/rust-cart-cache" }
+appveyor = { repository = "jedisct1/rust-cart-cache" }
 
 [dependencies]
 slab = "~0.3.0"
 
 [dev-dependencies]
-rand = "~0.3.14"
+rand = "~0.3.15"
