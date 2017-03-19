@@ -177,7 +177,10 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             is_reference: false,
             is_longterm: false,
         };
-        let token = self.slab.insert(entry).ok().expect("Slab full");
+        let token = self.slab
+            .insert(entry)
+            .ok()
+            .expect("Slab full");
         self.t1.push_back(token);
         self.shortterm_count += 1;
         self.map.insert(key, token);
