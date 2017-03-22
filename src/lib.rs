@@ -9,7 +9,8 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 struct Entry<K, V>
-    where K: Eq + Hash
+where
+    K: Eq + Hash,
 {
     key: K,
     value: V,
@@ -23,7 +24,8 @@ struct Entry<K, V>
 type Token = usize;
 
 pub struct CartCache<K, V>
-    where K: Eq + Hash
+where
+    K: Eq + Hash,
 {
     slab: Slab<Entry<K, V>, Token>,
     map: HashMap<K, Token>,
@@ -113,15 +115,17 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     }
 
     pub fn contains_key<Q: ?Sized>(&self, key: &Q) -> bool
-        where Q: Hash + Eq,
-              K: Borrow<Q>
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
     {
         self.map.contains_key(key)
     }
 
     pub fn get<Q: ?Sized>(&mut self, key: &Q) -> Option<&V>
-        where Q: Hash + Eq,
-              K: Borrow<Q>
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
     {
         match self.map.get(key) {
             Some(&token) => {
@@ -134,8 +138,9 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     }
 
     pub fn get_mut<Q: ?Sized>(&mut self, key: &Q) -> Option<&mut V>
-        where Q: Hash + Eq,
-              K: Borrow<Q>
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
     {
         match self.map.get(key) {
             Some(&token) => {
@@ -166,7 +171,8 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     }
 
     fn insert_new_entry(&mut self, key: K, value: V)
-        where K: Hash + Eq + Clone
+    where
+        K: Hash + Eq + Clone,
     {
         let entry = Entry {
             key: key.clone(),
@@ -219,7 +225,8 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     }
 
     pub fn insert(&mut self, key: K, value: V) -> bool
-        where K: Hash + Eq + Clone
+    where
+        K: Hash + Eq + Clone,
     {
         let (token, is_history, is_longterm) = match self.map.get_mut(&key) {
             Some(&mut token) => {
@@ -338,7 +345,8 @@ trait XLinkedNode {
 }
 
 impl<K, V> XLinkedNode for Entry<K, V>
-    where K: Eq + Hash
+where
+    K: Eq + Hash,
 {
     #[inline]
     fn prev(&self) -> Option<Token> {
@@ -362,7 +370,8 @@ impl<K, V> XLinkedNode for Entry<K, V>
 }
 
 struct XLinkedList<K, V>
-    where K: Eq + Hash
+where
+    K: Eq + Hash,
 {
     head: Option<Token>,
     tail: Option<Token>,
@@ -372,7 +381,8 @@ struct XLinkedList<K, V>
 }
 
 impl<K, V> XLinkedList<K, V>
-    where K: Eq + Hash
+where
+    K: Eq + Hash,
 {
     fn new() -> Self {
         XLinkedList {
