@@ -157,11 +157,15 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             self.replace();
             if is_history == false && self.b1.len() + self.b2.len() >= self.c + 1 {
                 if self.b1.len() > max(0, self.q) || self.b2.is_empty() {
-                    let token = self.b1.pop_front(&mut self.slab).expect("Front element vanished");
+                    let token = self.b1
+                        .pop_front(&mut self.slab)
+                        .expect("Front element vanished");
                     self.map.remove(&self.slab[token].key);
                     self.slab.remove(token);
                 } else if !self.b2.is_empty() {
-                    let token = self.b2.pop_front(&mut self.slab).expect("Front element vanished");
+                    let token = self.b2
+                        .pop_front(&mut self.slab)
+                        .expect("Front element vanished");
                     self.map.remove(&self.slab[token].key);
                     self.slab.remove(token);
                 }
@@ -183,10 +187,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             is_reference: false,
             is_longterm: false,
         };
-        let token = self.slab
-            .insert(entry)
-            .ok()
-            .expect("Slab full");
+        let token = self.slab.insert(entry).ok().expect("Slab full");
         self.t1.push_back(token);
         self.shortterm_count += 1;
         self.map.insert(key, token);
@@ -194,8 +195,10 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     }
 
     fn promote_from_b1(&mut self, token: Token) {
-        self.p = min(self.p + max(1, self.shortterm_count / self.b1.len()),
-                     self.c);
+        self.p = min(
+            self.p + max(1, self.shortterm_count / self.b1.len()),
+            self.c,
+        );
         {
             let cached_entry = &mut self.slab[token];
             cached_entry.is_history = false;
@@ -236,7 +239,11 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
                     cached_entry.value = value;
                     return true;
                 }
-                (Some(token), cached_entry.is_history, cached_entry.is_longterm)
+                (
+                    Some(token),
+                    cached_entry.is_history,
+                    cached_entry.is_longterm,
+                )
             }
             None => (None, false, false),
         };
@@ -255,11 +262,9 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         loop {
             match self.t2.front() {
                 None => break,
-                Some(&token) => {
-                    if self.slab[token].is_reference != true {
-                        break;
-                    }
-                }
+                Some(&token) => if self.slab[token].is_reference != true {
+                    break;
+                },
             }
             let token = self.t2.pop_front().expect("Front element vanished");
             let found = &mut self.slab[token];
