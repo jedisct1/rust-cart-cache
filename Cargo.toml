@@ -13,7 +13,7 @@ travis-ci = { repository = "jedisct1/rust-cart-cache" }
 appveyor = { repository = "jedisct1/rust-cart-cache" }
 
 [dependencies]
-slab = "~0.3.0"
+slab = "~0.4.2"
 
 [dev-dependencies]
 rand = "~0.7.2"
