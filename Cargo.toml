@@ -1,7 +1,7 @@
 [package]
 name = "cart-cache"
 description = "CART cache replacement policy"
-version = "0.1.3"
+version = "0.1.4"
 homepage = "https://github.com/jedisct1/rust-cart"
 keywords = ["cache"]
 license = "MIT"
