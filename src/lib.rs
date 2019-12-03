@@ -8,6 +8,8 @@ use std::collections::VecDeque;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
+type Token = usize;
+
 struct Entry<K, V>
 where
     K: Eq + Hash,
@@ -21,13 +23,11 @@ where
     is_longterm: bool,
 }
 
-type Token = usize;
-
 pub struct CartCache<K, V>
 where
     K: Eq + Hash,
 {
-    slab: Slab<Entry<K, V>, Token>,
+    slab: Slab<Entry<K, V>>,
     map: HashMap<K, Token>,
     t1: VecDeque<Token>,
     t2: VecDeque<Token>,
@@ -157,13 +157,15 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             self.replace();
             if is_history == false && self.b1.len() + self.b2.len() >= self.c + 1 {
                 if self.b1.len() > max(0, self.q) || self.b2.is_empty() {
-                    let token = self.b1
+                    let token = self
+                        .b1
                         .pop_front(&mut self.slab)
                         .expect("Front element vanished");
                     self.map.remove(&self.slab[token].key);
                     self.slab.remove(token);
                 } else if !self.b2.is_empty() {
-                    let token = self.b2
+                    let token = self
+                        .b2
                         .pop_front(&mut self.slab)
                         .expect("Front element vanished");
                     self.map.remove(&self.slab[token].key);
@@ -187,7 +189,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             is_reference: false,
             is_longterm: false,
         };
-        let token = self.slab.insert(entry).ok().expect("Slab full");
+        let token = self.slab.insert(entry);
         self.t1.push_back(token);
         self.shortterm_count += 1;
         self.map.insert(key, token);
@@ -262,9 +264,11 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         loop {
             match self.t2.front() {
                 None => break,
-                Some(&token) => if self.slab[token].is_reference != true {
-                    break;
-                },
+                Some(&token) => {
+                    if self.slab[token].is_reference != true {
+                        break;
+                    }
+                }
             }
             let token = self.t2.pop_front().expect("Front element vanished");
             let found = &mut self.slab[token];
@@ -416,7 +420,7 @@ where
         self.tail = None;
     }
 
-    fn remove(&mut self, slab: &mut Slab<Entry<K, V>, Token>, token: Token) {
+    fn remove(&mut self, slab: &mut Slab<Entry<K, V>>, token: Token) {
         let (prev_token, next_token) = {
             let elt = &mut slab[token];
             let prev_token = elt.prev();
@@ -438,7 +442,7 @@ where
         self.len -= 1;
     }
 
-    fn push_back(&mut self, slab: &mut Slab<Entry<K, V>, Token>, token: Token) {
+    fn push_back(&mut self, slab: &mut Slab<Entry<K, V>>, token: Token) {
         {
             let elt = &mut slab[token];
             elt.set_prev(self.tail);
@@ -452,7 +456,7 @@ where
         self.len += 1;
     }
 
-    pub fn pop_front(&mut self, slab: &mut Slab<Entry<K, V>, Token>) -> Option<Token> {
+    pub fn pop_front(&mut self, slab: &mut Slab<Entry<K, V>>) -> Option<Token> {
         let head_token = self.head;
         if let Some(head_token) = head_token {
             let new_head_token = {
@@ -477,15 +481,15 @@ where
 #[cfg(test)]
 mod tests {
     extern crate rand;
-    use self::rand::Rng;
-    use CartCache;
+    use self::rand::prelude::*;
+    use crate::CartCache;
 
     #[test]
     fn random_inserts() {
         let count = 1_000_000;
         let mut cached: u64 = 0;
         let mut cache: CartCache<u8, u8> = CartCache::new(128).unwrap();
-        let mut rng = rand::weak_rng();
+        let mut rng = thread_rng();
 
         for _ in 0..count {
             let key: u8 = rng.gen();
