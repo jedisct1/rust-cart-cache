@@ -45,7 +45,7 @@ where
 
 impl<K: Eq + Hash, V> CartCache<K, V> {
     pub fn new(capacity: usize) -> Result<CartCache<K, V>, &'static str> {
-        if capacity <= 0 {
+        if capacity == 0 {
             return Err("Cache length cannot be zero");
         }
         let c = capacity / 2;
@@ -57,14 +57,14 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         let b2 = XLinkedList::new();
 
         let cache = CartCache {
-            slab: slab,
-            map: map,
-            t1: t1,
-            t2: t2,
-            b1: b1,
-            b2: b2,
-            c: c,
-            capacity: capacity,
+            slab,
+            map,
+            t1,
+            t2,
+            b1,
+            b2,
+            c,
+            capacity,
             p: 0,
             q: 0,
             shortterm_count: 0,
@@ -155,7 +155,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     fn evict_if_full(&mut self, is_history: bool) {
         if self.t1.len() + self.t2.len() >= self.c {
             self.replace();
-            if is_history == false && self.b1.len() + self.b2.len() >= self.c + 1 {
+            if !is_history && self.b1.len() + self.b2.len() >= self.c + 1 {
                 if self.b1.len() > max(0, self.q) || self.b2.is_empty() {
                     let token = self
                         .b1
@@ -182,7 +182,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
     {
         let entry = Entry {
             key: key.clone(),
-            value: value,
+            value,
             prev: None,
             next: None,
             is_history: false,
@@ -219,7 +219,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             let cached_entry = &mut self.slab[token];
             cached_entry.is_history = false;
             cached_entry.is_reference = false;
-            assert!(cached_entry.is_longterm == true);
+            assert!(cached_entry.is_longterm);
             self.longterm_count += 1;
         }
         self.b2.remove(&mut self.slab, token);
@@ -236,7 +236,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         let (token, is_history, is_longterm) = match self.map.get_mut(&key) {
             Some(&mut token) => {
                 let cached_entry = &mut self.slab[token];
-                if cached_entry.is_history == false {
+                if !cached_entry.is_history {
                     cached_entry.is_reference = true;
                     cached_entry.value = value;
                     return true;
@@ -250,9 +250,9 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             None => (None, false, false),
         };
         self.evict_if_full(is_history);
-        if is_history == false {
+        if !is_history {
             self.insert_new_entry(key, value);
-        } else if is_longterm == false {
+        } else if !is_longterm {
             self.promote_from_b1(token.unwrap());
         } else {
             self.promote_from_b2(token.unwrap());
@@ -265,7 +265,7 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             match self.t2.front() {
                 None => break,
                 Some(&token) => {
-                    if self.slab[token].is_reference != true {
+                    if !self.slab[token].is_reference {
                         break;
                     }
                 }
@@ -286,18 +286,18 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
                 None => break,
                 Some(&token) => {
                     let found = &mut self.slab[token];
-                    if !(found.is_longterm == true || found.is_reference == true) {
+                    if !(found.is_longterm || found.is_reference) {
                         break;
                     }
                 }
             }
             let token = self.t1.pop_front().expect("Front element vanished");
             let found = &mut self.slab[token];
-            if found.is_reference == true {
+            if found.is_reference {
                 found.is_reference = false;
                 self.t1.push_back(token);
-                if self.t1.len() >= min(self.p + 1, self.b1.len()) && found.is_longterm == false {
-                    assert!(found.is_longterm == false);
+                if self.t1.len() >= min(self.p + 1, self.b1.len()) && !found.is_longterm {
+                    assert!(!found.is_longterm);
                     found.is_longterm = true;
                     self.shortterm_count -= 1;
                     self.longterm_count += 1;
@@ -318,24 +318,22 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
             if let Some(token) = self.t1.pop_front() {
                 {
                     let demoted = &mut self.slab[token];
-                    assert!(demoted.is_history == false);
+                    assert!(!demoted.is_history);
                     demoted.is_history = true;
-                    assert!(demoted.is_longterm == false);
+                    assert!(!demoted.is_longterm);
                     self.shortterm_count -= 1;
                 }
                 self.b1.push_back(&mut self.slab, token);
             }
-        } else {
-            if let Some(token) = self.t2.pop_front() {
-                {
-                    let demoted = &mut self.slab[token];
-                    assert!(demoted.is_history == false);
-                    demoted.is_history = true;
-                    assert!(demoted.is_longterm == true);
-                    self.longterm_count -= 1;
-                }
-                self.b2.push_back(&mut self.slab, token);
+        } else if let Some(token) = self.t2.pop_front() {
+            {
+                let demoted = &mut self.slab[token];
+                assert!(!demoted.is_history);
+                demoted.is_history = true;
+                assert!(demoted.is_longterm);
+                self.longterm_count -= 1;
             }
+            self.b2.push_back(&mut self.slab, token);
         }
     }
 
