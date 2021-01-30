@@ -83,6 +83,10 @@ impl<K: Eq + Hash, V> CartCache<K, V> {
         self.map.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn frequent_len(&self) -> usize {
         self.longterm_count + self.b2.len()
     }
