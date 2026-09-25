@@ -1,7 +1,7 @@
 [package]
 name = "cart-cache"
 description = "CART in-memory cache with adaptive eviction based on access recency and frequency"
-version = "0.1.6"
+version = "0.1.7"
 homepage = "https://github.com/jedisct1/rust-cart"
 keywords = ["cache", "caching", "cart", "eviction", "adaptive"]
 license = "MIT"
@@ -13,7 +13,7 @@ travis-ci = { repository = "jedisct1/rust-cart-cache" }
 appveyor = { repository = "jedisct1/rust-cart-cache" }
 
 [dependencies]
-slab = "0.4.9"
+slab = "0.4.12"
 
 [dev-dependencies]
 rand = "0.8"
