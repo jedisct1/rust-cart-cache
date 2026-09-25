@@ -1,9 +1,9 @@
 [package]
 name = "cart-cache"
-description = "CART cache replacement policy"
+description = "CART in-memory cache with adaptive eviction based on access recency and frequency"
 version = "0.1.6"
 homepage = "https://github.com/jedisct1/rust-cart"
-keywords = ["cache"]
+keywords = ["cache", "caching", "cart", "eviction", "adaptive"]
 license = "MIT"
 authors = ["Frank Denis <github@pureftpd.org>"]
 categories = ["algorithms", "caching"]
